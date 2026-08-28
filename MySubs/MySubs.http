@@ -1,0 +1,6 @@
+@MySubs_HostAddress = http://localhost:5041
+
+GET {{MySubs_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
