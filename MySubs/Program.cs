@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 using MySubs.Data;
 using MySubs.Data.Repositories;
 using MySubs.Data.Repositories.interfaces;
@@ -9,6 +10,7 @@ using MySubs.Models;
 using MySubs.Services;
 using MySubs.Services.IServices;
 using System.Text;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,7 +22,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.Password.RequiredLength = 8;
-    options.Password.RequireNonAlphanumeric = false; // justera efter dina krav
+    options.Password.RequireNonAlphanumeric = false;
     options.User.RequireUniqueEmail = true;
 })
     .AddEntityFrameworkStores<ApplicationDbContext>()
@@ -75,14 +77,16 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
+   
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
 
 app.UseCors("AllowReactApp"); // måste komma FÖRE UseAuthentication/UseAuthorization
 
-app.UseAuthentication(); // måste komma FÖRE UseAuthorization - annars vet ASP.NET inte vem användaren är
+app.UseAuthentication(); // måste komma FÖRE UseAuthorization 
 app.UseAuthorization();
 
 app.MapControllers();

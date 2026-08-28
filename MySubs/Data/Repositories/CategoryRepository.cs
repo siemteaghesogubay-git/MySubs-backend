@@ -1,5 +1,6 @@
 ﻿using MySubs.Data.Repositories.interfaces;
 using MySubs.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace MySubs.Data.Repositories
 {
