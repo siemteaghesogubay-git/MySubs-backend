@@ -53,7 +53,7 @@ namespace MySubs.Services
             };
         }
 
-        public async Task<bool> UpdateCategoryAsync(int id, CategoryCreateDto dto)
+        public async Task<bool> UpdateCategoryAsync(int id, CategoryUpdateDto dto)
         {
             var existing = await _categoryRepository.GetCategoryByIdAsync(id);
             if (existing is null) return false;
