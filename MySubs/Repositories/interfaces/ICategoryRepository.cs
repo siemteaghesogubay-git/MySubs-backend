@@ -1,6 +1,6 @@
 ﻿using MySubs.Models;
 
-namespace MySubs.Data.Repositories.interfaces
+namespace MySubs.Repositories.interfaces
 {
     public interface ICategoryRepository
     {

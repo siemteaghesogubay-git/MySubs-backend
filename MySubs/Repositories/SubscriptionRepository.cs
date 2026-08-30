@@ -1,13 +1,16 @@
-﻿using MySubs.Data.Repositories.interfaces;
+﻿using MySubs.Repositories.interfaces;
 using MySubs.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MySubs.Data;
 
-namespace MySubs.Data.Repositories
+
+namespace MySubs.Repositories
 {
     public class SubscriptionRepository : ISubscriptionRepository
+
     {
         private readonly ApplicationDbContext _context;
 

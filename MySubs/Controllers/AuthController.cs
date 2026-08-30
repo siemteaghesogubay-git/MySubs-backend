@@ -21,9 +21,10 @@ namespace MySubs.Controllers
             _userManager = userManager;
             _configuration = configuration;
         }
-
-
         [HttpPost("register")]
+
+
+
         public async Task<ActionResult<AuthResponseDto>> Register(RegisterDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -42,14 +43,16 @@ namespace MySubs.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            var token = GenerateJwtToken(user);
-            return Ok(new AuthResponseDto { Token = token, Email = user.Email! });
+            // Tilldela alltid rollen "User" vid registrering
+            await _userManager.AddToRoleAsync(user, "User");
+
+            var token = await GenerateJwtToken(user);
+            var roles = await _userManager.GetRolesAsync(user);
+
+            return Ok(new AuthResponseDto { Token = token, Email = user.Email!, Roles = roles });
+
+
         }
-
-
-
-
-
 
 
         [HttpPost("login")]
@@ -65,8 +68,9 @@ namespace MySubs.Controllers
             if (!validPassword)
                 return Unauthorized("Fel e-post eller lösenord.");
 
-            var token = GenerateJwtToken(user);
-            return Ok(new AuthResponseDto { Token = token, Email = user.Email! });
+            var token = await GenerateJwtToken(user);
+            var roles = await _userManager.GetRolesAsync(user);
+            return Ok(new AuthResponseDto { Token = token, Email = user.Email!, Roles = roles });
         }
 
         // Logout hanteras på klientsidan genom att kasta bort token (JWT är stateless)
@@ -76,16 +80,23 @@ namespace MySubs.Controllers
             return Ok(new { message = "Utloggad. Ta bort token på klientsidan." });
         }
 
-        private string GenerateJwtToken(ApplicationUser user)
+        private async Task<string> GenerateJwtToken(ApplicationUser user)
         {
             var jwtKey = _configuration["Jwt:Key"]
                 ?? throw new InvalidOperationException("Jwt:Key saknas i konfigurationen.");
 
+            var roles = await _userManager.GetRolesAsync(user);
+
             var claims = new List<Claim>
+    {
+        new(ClaimTypes.NameIdentifier, user.Id),
+        new(ClaimTypes.Email, user.Email!)
+    };
+
+            foreach (var role in roles)
             {
-                new(ClaimTypes.NameIdentifier, user.Id),
-                new(ClaimTypes.Email, user.Email!)
-            };
+                claims.Add(new Claim(ClaimTypes.Role, role));
+            }
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

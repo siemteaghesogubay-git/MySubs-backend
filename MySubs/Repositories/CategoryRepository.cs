@@ -1,8 +1,9 @@
-﻿using MySubs.Data.Repositories.interfaces;
+﻿using MySubs.Repositories.interfaces;
 using MySubs.Models;
 using Microsoft.EntityFrameworkCore;
+using MySubs.Data;
 
-namespace MySubs.Data.Repositories
+namespace MySubs.Repositories
 {
     public class CategoryRepository : ICategoryRepository
     {

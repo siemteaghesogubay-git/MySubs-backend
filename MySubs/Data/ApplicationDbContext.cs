@@ -1,10 +1,13 @@
 ﻿namespace MySubs.Data
 {
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+    using Microsoft.AspNetCore.Identity;
     using Microsoft.EntityFrameworkCore;
     using MySubs.Models;
 
-    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, string,
+        IdentityUserClaim<string>, IdentityUserRole<string>, IdentityUserLogin<string>,
+        IdentityRoleClaim<string>, IdentityUserToken<string>>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
@@ -13,10 +16,11 @@
 
         public DbSet<Subscription> Subscriptions { get; set; }
         public DbSet<Category> Categories { get; set; }
+        
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
-            base.OnModelCreating(builder); // viktigt - måste köras först för att Identity-tabellerna ska skapas korrekt
+            base.OnModelCreating(builder); 
 
             // Subscription -> Category (many-to-one)
             builder.Entity<Subscription>()
@@ -32,7 +36,7 @@
                 .HasForeignKey(s => s.UserId)
                 .OnDelete(DeleteBehavior.Cascade); // raderar användarens prenumerationer om kontot tas bort
 
-            // Explicit kolumntyp för pengar - undviker precisionsproblem med decimal/float
+            
             builder.Entity<Subscription>()
                 .Property(s => s.Cost)
                 .HasColumnType("decimal(10,2)");

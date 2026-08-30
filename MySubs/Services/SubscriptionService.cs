@@ -1,7 +1,11 @@
-﻿using MySubs.Data.Repositories.interfaces;
+﻿using MySubs.Repositories.interfaces;
 using MySubs.Dtos;
 using MySubs.Models;
 using MySubs.Services.IServices;
+using MySubs.Data;
+using Microsoft.EntityFrameworkCore;
+using MySubs.Repositories;
+
 
 namespace MySubs.Services
 {
