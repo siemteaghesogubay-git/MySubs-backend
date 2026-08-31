@@ -119,7 +119,9 @@ namespace MySubs.Controllers
             });
         }
 
-        // Logout återkallar refresh token; JWT (access token) förblir stateless och giltig tills det går ut
+
+
+
         [HttpPost("logout")]
         [Authorize]
         public async Task<IActionResult> Logout(RefreshTokenDto dto)
@@ -187,5 +189,41 @@ namespace MySubs.Controllers
 
             return refreshTokenValue;
         }
+
+
+
+
+
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var user = await _userManager.FindByIdAsync(userId!);
+            if (user is null) return Unauthorized();
+
+            var result = await _userManager.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
+
+            if (!result.Succeeded)
+                return BadRequest(result.Errors);
+
+            var activeTokens = await _context.RefreshTokens
+                .Where(rt => rt.UserId == user.Id && rt.RevokedAt == null)
+                .ToListAsync();
+
+            foreach (var token in activeTokens)
+            {
+                token.RevokedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Lösenordet har ändrats. Vänligen logga in igen." });
+        }
+
+
+
     }
 }
