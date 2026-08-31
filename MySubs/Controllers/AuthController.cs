@@ -1,11 +1,15 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MySubs.Data;
 using MySubs.Dtos;
 using MySubs.Models;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace MySubs.Controllers
 {
@@ -15,16 +19,20 @@ namespace MySubs.Controllers
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IConfiguration _configuration;
+        private readonly ApplicationDbContext _context;
 
-        public AuthController(UserManager<ApplicationUser> userManager, IConfiguration configuration)
+        public AuthController(
+            UserManager<ApplicationUser> userManager,
+            IConfiguration configuration,
+            ApplicationDbContext context)
         {
             _userManager = userManager;
             _configuration = configuration;
+            _context = context;
         }
+
         [HttpPost("register")]
-
-
-
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<ActionResult<AuthResponseDto>> Register(RegisterDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -39,45 +47,93 @@ namespace MySubs.Controllers
             };
 
             var result = await _userManager.CreateAsync(user, dto.Password);
-
-            if (!result.Succeeded)
-                return BadRequest(result.Errors);
+            if (!result.Succeeded) return BadRequest(result.Errors);
 
             // Tilldela alltid rollen "User" vid registrering
             await _userManager.AddToRoleAsync(user, "User");
 
             var token = await GenerateJwtToken(user);
+            var refreshToken = await GenerateRefreshToken(user);
             var roles = await _userManager.GetRolesAsync(user);
 
-            return Ok(new AuthResponseDto { Token = token, Email = user.Email!, Roles = roles });
-
-
+            return Ok(new AuthResponseDto
+            {
+                Token = token,
+                RefreshToken = refreshToken,
+                Email = user.Email!,
+                Roles = roles
+            });
         }
 
-
         [HttpPost("login")]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<ActionResult<AuthResponseDto>> Login(LoginDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
             var user = await _userManager.FindByEmailAsync(dto.Email);
-            if (user is null)
-                return Unauthorized("Fel e-post eller lösenord.");
+            if (user is null) return Unauthorized("Fel e-post eller lösenord.");
 
             var validPassword = await _userManager.CheckPasswordAsync(user, dto.Password);
-            if (!validPassword)
-                return Unauthorized("Fel e-post eller lösenord.");
+            if (!validPassword) return Unauthorized("Fel e-post eller lösenord.");
 
             var token = await GenerateJwtToken(user);
+            var refreshToken = await GenerateRefreshToken(user);
             var roles = await _userManager.GetRolesAsync(user);
-            return Ok(new AuthResponseDto { Token = token, Email = user.Email!, Roles = roles });
+
+            return Ok(new AuthResponseDto
+            {
+                Token = token,
+                RefreshToken = refreshToken,
+                Email = user.Email!,
+                Roles = roles
+            });
         }
 
-        // Logout hanteras på klientsidan genom att kasta bort token (JWT är stateless)
-        [HttpPost("logout")]
-        public IActionResult Logout()
+        [HttpPost("refresh")]
+        public async Task<ActionResult<AuthResponseDto>> Refresh(RefreshTokenDto dto)
         {
-            return Ok(new { message = "Utloggad. Ta bort token på klientsidan." });
+            var storedToken = await _context.RefreshTokens
+                .Include(rt => rt.User)
+                .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken);
+
+            if (storedToken is null || !storedToken.IsActive)
+                return Unauthorized("Ogiltig eller utgången refresh token.");
+
+            // Rotera token: återkalla den gamla, skapa en ny
+            storedToken.RevokedAt = DateTime.UtcNow;
+
+            var newAccessToken = await GenerateJwtToken(storedToken.User);
+            var newRefreshToken = await GenerateRefreshToken(storedToken.User);
+
+            await _context.SaveChangesAsync();
+
+            var roles = await _userManager.GetRolesAsync(storedToken.User);
+
+            return Ok(new AuthResponseDto
+            {
+                Token = newAccessToken,
+                RefreshToken = newRefreshToken,
+                Email = storedToken.User.Email!,
+                Roles = roles
+            });
+        }
+
+        // Logout återkallar refresh token; JWT (access token) förblir stateless och giltig tills det går ut
+        [HttpPost("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout(RefreshTokenDto dto)
+        {
+            var storedToken = await _context.RefreshTokens
+                .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken);
+
+            if (storedToken is not null)
+            {
+                storedToken.RevokedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new { message = "Utloggad." });
         }
 
         private async Task<string> GenerateJwtToken(ApplicationUser user)
@@ -88,10 +144,10 @@ namespace MySubs.Controllers
             var roles = await _userManager.GetRolesAsync(user);
 
             var claims = new List<Claim>
-    {
-        new(ClaimTypes.NameIdentifier, user.Id),
-        new(ClaimTypes.Email, user.Email!)
-    };
+            {
+                new(ClaimTypes.NameIdentifier, user.Id),
+                new(ClaimTypes.Email, user.Email!)
+            };
 
             foreach (var role in roles)
             {
@@ -105,11 +161,31 @@ namespace MySubs.Controllers
                 issuer: _configuration["Jwt:Issuer"],
                 audience: _configuration["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddDays(7),
+                expires: DateTime.UtcNow.AddMinutes(15), // kortare livstid, refresh token hanterar förnyelse
                 signingCredentials: creds
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private async Task<string> GenerateRefreshToken(ApplicationUser user)
+        {
+            var randomBytes = new byte[64];
+            using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+            rng.GetBytes(randomBytes);
+            var refreshTokenValue = Convert.ToBase64String(randomBytes);
+
+            var refreshToken = new RefreshToken
+            {
+                Token = refreshTokenValue,
+                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                UserId = user.Id
+            };
+
+            _context.RefreshTokens.Add(refreshToken);
+            await _context.SaveChangesAsync();
+
+            return refreshTokenValue;
         }
     }
 }

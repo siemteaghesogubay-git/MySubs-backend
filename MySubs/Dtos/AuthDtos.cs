@@ -42,9 +42,16 @@ namespace MySubs.Dtos
         public string Password { get; set; } = string.Empty;
     }
 
+    public class RefreshTokenDto
+    {
+        [Required]
+        public string RefreshToken { get; set; } = string.Empty;
+    }
+
     public class AuthResponseDto
     {
         public string Token { get; set; } = string.Empty;
+        public string RefreshToken { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public IList<string> Roles { get; set; } = new List<string>();
     }

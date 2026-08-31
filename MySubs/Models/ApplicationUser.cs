@@ -17,5 +17,6 @@ namespace MySubs.Models
             
 
         public ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
+        public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     }
 }

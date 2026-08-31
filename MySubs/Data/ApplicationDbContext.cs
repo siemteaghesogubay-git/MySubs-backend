@@ -16,11 +16,11 @@
 
         public DbSet<Subscription> Subscriptions { get; set; }
         public DbSet<Category> Categories { get; set; }
-        
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
-            base.OnModelCreating(builder); 
+            base.OnModelCreating(builder);
 
             // Subscription -> Category (many-to-one)
             builder.Entity<Subscription>()
@@ -36,10 +36,16 @@
                 .HasForeignKey(s => s.UserId)
                 .OnDelete(DeleteBehavior.Cascade); // raderar användarens prenumerationer om kontot tas bort
 
-            
             builder.Entity<Subscription>()
                 .Property(s => s.Cost)
                 .HasColumnType("decimal(10,2)");
+
+            // RefreshToken -> ApplicationUser (many-to-one)
+            builder.Entity<RefreshToken>()
+                .HasOne(rt => rt.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(rt => rt.UserId)
+                .OnDelete(DeleteBehavior.Cascade); // raderar refresh tokens om användaren tas bort
         }
     }
 }

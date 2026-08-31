@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -10,8 +11,10 @@ using MySubs.Repositories.interfaces;
 using MySubs.Services;
 using MySubs.Services.IServices;
 using Scalar.AspNetCore;
-using System.Text;
 using System.Collections.Generic;
+using System.Text;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -98,6 +101,21 @@ builder.Services.AddOpenApi(options =>
     });
 });
 
+
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("AuthPolicy", opt =>
+    {
+        opt.PermitLimit = 5;              // max 5 försök
+        opt.Window = TimeSpan.FromMinutes(1); // per minut
+        opt.QueueLimit = 0;                
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -112,10 +130,10 @@ app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.UseRateLimiter();
 app.MapControllers();
 
-// --- Seed roller ---
+// --- Seed roller --- AI
 using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
