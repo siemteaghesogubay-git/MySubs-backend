@@ -91,5 +91,101 @@ namespace MySubs.Services
                 CategoryName = s.Category?.Name ?? string.Empty
             };
         }
+
+        public async Task<DashboardSummaryDto> GetDashboardSummaryAsync(string userId)
+        {
+            var subscriptions = await _subscriptionRepository.GetAllSubscriptionsForUserAsync(userId);
+
+            var active = subscriptions.Where(s => s.CancelledDate is null).ToList();
+            var cancelled = subscriptions.Where(s => s.CancelledDate is not null).ToList();
+
+            // Räkna om årliga kostnader till per månad så allt är jämförbart
+            decimal MonthlyEquivalent(Subscription s) =>
+                s.Interval == BillingInterval.Yearly ? s.Cost / 12 : s.Cost;
+
+            var totalMonthlyCost = active.Sum(MonthlyEquivalent);
+
+            var costByCategory = active
+                .GroupBy(s => s.Category.Name)
+                .Select(g => new CategorySummaryDto
+                {
+                    CategoryName = g.Key,
+                    TotalMonthlyCost = g.Sum(MonthlyEquivalent),
+                    SubscriptionCount = g.Count()
+                })
+                .OrderByDescending(c => c.TotalMonthlyCost)
+                .ToList();
+
+            return new DashboardSummaryDto
+            {
+                TotalMonthlyCost = totalMonthlyCost,
+                ActiveSubscriptionCount = active.Count,
+                CancelledSubscriptionCount = cancelled.Count,
+                CostByCategory = costByCategory
+            };
+        }
+
+
+
+
+
+
+
+        private static DateTime GetNextPaymentDate(Subscription subscription)
+        {
+            var start = subscription.StartDate;
+            var now = DateTime.UtcNow;
+
+            if (subscription.Interval == BillingInterval.Monthly)
+            {
+                var next = start;
+                while (next < now)
+                {
+                    next = next.AddMonths(1);
+                }
+                return next;
+            }
+            else // Yearly
+            {
+                var next = start;
+                while (next < now)
+                {
+                    next = next.AddYears(1);
+                }
+                return next;
+            }
+        }
+
+
+
+            public async Task<List<UpcomingPaymentDto>> GetUpcomingPaymentsAsync(string userId, int daysAhead = 7)
+        {
+            var subscriptions = await _subscriptionRepository.GetAllSubscriptionsForUserAsync(userId);
+            var active = subscriptions.Where(s => s.CancelledDate is null);
+
+            var cutoff = DateTime.UtcNow.AddDays(daysAhead);
+
+            var upcoming = active
+                .Select(s => new
+                {
+                    Subscription = s,
+                    NextPayment = GetNextPaymentDate(s)
+                })
+                .Where(x => x.NextPayment <= cutoff)
+                .OrderBy(x => x.NextPayment)
+                .Select(x => new UpcomingPaymentDto
+                {
+                    SubscriptionId = x.Subscription.Id,
+                    Name = x.Subscription.Name,
+                    Cost = x.Subscription.Cost,
+                    NextPaymentDate = x.NextPayment,
+                    CategoryName = x.Subscription.Category.Name
+                })
+                .ToList();
+
+            return upcoming;
+        }
     }
-}
+    }           
+    
+

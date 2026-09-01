@@ -37,6 +37,30 @@ namespace MySubs.Dtos
         public DateTime StartDate { get; set; }
         public DateTime? CancelledDate { get; set; }
         public int CategoryId { get; set; }
-        public string CategoryName { get; set; } = string.Empty; // slår ihop lite data, slipper extra anrop i frontend
+        public string CategoryName { get; set; } = string.Empty; 
+    }
+
+    public class CategorySummaryDto
+    {
+        public string CategoryName { get; set; } = string.Empty;
+        public decimal TotalMonthlyCost { get; set; }
+        public int SubscriptionCount { get; set; }
+    }
+
+    public class DashboardSummaryDto
+    {
+        public decimal TotalMonthlyCost { get; set; }
+        public int ActiveSubscriptionCount { get; set; }
+        public int CancelledSubscriptionCount { get; set; }
+        public List<CategorySummaryDto> CostByCategory { get; set; } = new();
+    }
+
+    public class UpcomingPaymentDto
+    {
+        public int SubscriptionId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public decimal Cost { get; set; }
+        public DateTime NextPaymentDate { get; set; }
+        public string CategoryName { get; set; } = string.Empty;
     }
 }

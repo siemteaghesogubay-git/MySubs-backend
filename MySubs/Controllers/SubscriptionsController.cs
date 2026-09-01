@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MySubs.Dtos;
 using MySubs.Services.IServices;
@@ -25,6 +24,18 @@ namespace MySubs.Controllers
         public async Task<ActionResult<List<SubscriptionResponseDto>>> GetAll()
         {
             return Ok(await _subscriptionService.GetAllSubscriptionsAsync(UserId));
+        }
+
+        [HttpGet("summary")]
+        public async Task<ActionResult<DashboardSummaryDto>> GetSummary()
+        {
+            return Ok(await _subscriptionService.GetDashboardSummaryAsync(UserId));
+        }
+
+        [HttpGet("upcoming")]
+        public async Task<ActionResult<List<UpcomingPaymentDto>>> GetUpcoming([FromQuery] int daysAhead = 7)
+        {
+            return Ok(await _subscriptionService.GetUpcomingPaymentsAsync(UserId, daysAhead));
         }
 
         [HttpGet("{id}")]
