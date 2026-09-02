@@ -14,8 +14,6 @@ using Scalar.AspNetCore;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.RateLimiting;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Databas ---
@@ -69,6 +67,9 @@ builder.Services.AddCors(options =>
 // --- Repositories ---
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+builder.Services.AddScoped<IFamilyGroupRepository, FamilyGroupRepository>();
+builder.Services.AddScoped<IFamilyGroupService, FamilyGroupService>();
+
 
 // --- Services ---
 builder.Services.AddScoped<ICategoryService, CategoryService>();

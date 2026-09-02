@@ -10,6 +10,7 @@ namespace MySubs.Repositories.interfaces
         Task<Subscription> CreateSubscriptionAsync(Subscription newSubscription);
         Task<bool> UpdateSubscriptionAsync(Subscription subscription);
         Task<bool> DeleteSubscriptionAsync(int subscriptionId, string userId);
-       
+        Task<List<SubscriptionResponseDto>> GetAllSubscriptionsAsync(string userId, SubscriptionFilterDto? filter = null);
+
     }
 }

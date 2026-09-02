@@ -6,7 +6,6 @@ using MySubs.Data;
 using Microsoft.EntityFrameworkCore;
 using MySubs.Repositories;
 
-
 namespace MySubs.Services
 {
     public class SubscriptionService : ISubscriptionService
@@ -22,10 +21,35 @@ namespace MySubs.Services
             _categoryRepository = categoryRepository;
         }
 
-        public async Task<List<SubscriptionResponseDto>> GetAllSubscriptionsAsync(string userId)
+        public async Task<List<SubscriptionResponseDto>> GetAllSubscriptionsAsync(string userId, SubscriptionFilterDto? filter = null)
         {
             var subscriptions = await _subscriptionRepository.GetAllSubscriptionsForUserAsync(userId);
-            return subscriptions.Select(MapToResponseDto).ToList();
+            var query = subscriptions.AsEnumerable();
+
+            if (filter is not null)
+            {
+                if (filter.CategoryId.HasValue)
+                    query = query.Where(s => s.CategoryId == filter.CategoryId.Value);
+
+                if (filter.ActiveOnly == true)
+                    query = query.Where(s => s.CancelledDate is null);
+
+                query = filter.SortBy?.ToLower() switch
+                {
+                    "cost" => filter.SortDescending == true
+                        ? query.OrderByDescending(s => s.Cost)
+                        : query.OrderBy(s => s.Cost),
+                    "startdate" => filter.SortDescending == true
+                        ? query.OrderByDescending(s => s.StartDate)
+                        : query.OrderBy(s => s.StartDate),
+                    "name" => filter.SortDescending == true
+                        ? query.OrderByDescending(s => s.Name)
+                        : query.OrderBy(s => s.Name),
+                    _ => query
+                };
+            }
+
+            return query.Select(MapToResponseDto).ToList();
         }
 
         public async Task<SubscriptionResponseDto?> GetSubscriptionByIdAsync(int id, string userId)
@@ -47,18 +71,16 @@ namespace MySubs.Services
                 Interval = dto.Interval,
                 StartDate = dto.StartDate,
                 CategoryId = dto.CategoryId,
-                UserId = userId 
+                UserId = userId
             };
 
             var created = await _subscriptionRepository.CreateSubscriptionAsync(subscription);
-            created.Category = category; 
+            created.Category = category;
             return MapToResponseDto(created);
         }
 
         public async Task<bool> UpdateSubscriptionAsync(int id, SubscriptionUpdateDto dto, string userId)
         {
-            // Hämtas via repository som redan filtrerar på userId —
-            // om den inte hittas ägs den antingen inte av användaren eller finns inte alls
             var existing = await _subscriptionRepository.GetSubscriptionByIdAsync(id, userId);
             if (existing is null) return false;
 
@@ -77,21 +99,6 @@ namespace MySubs.Services
             return await _subscriptionRepository.DeleteSubscriptionAsync(id, userId);
         }
 
-        private static SubscriptionResponseDto MapToResponseDto(Subscription s)
-        {
-            return new SubscriptionResponseDto
-            {
-                Id = s.Id,
-                Name = s.Name,
-                Cost = s.Cost,
-                Interval = s.Interval,
-                StartDate = s.StartDate,
-                CancelledDate = s.CancelledDate,
-                CategoryId = s.CategoryId,
-                CategoryName = s.Category?.Name ?? string.Empty
-            };
-        }
-
         public async Task<DashboardSummaryDto> GetDashboardSummaryAsync(string userId)
         {
             var subscriptions = await _subscriptionRepository.GetAllSubscriptionsForUserAsync(userId);
@@ -99,7 +106,6 @@ namespace MySubs.Services
             var active = subscriptions.Where(s => s.CancelledDate is null).ToList();
             var cancelled = subscriptions.Where(s => s.CancelledDate is not null).ToList();
 
-            // Räkna om årliga kostnader till per månad så allt är jämförbart
             decimal MonthlyEquivalent(Subscription s) =>
                 s.Interval == BillingInterval.Yearly ? s.Cost / 12 : s.Cost;
 
@@ -125,40 +131,7 @@ namespace MySubs.Services
             };
         }
 
-
-
-
-
-
-
-        private static DateTime GetNextPaymentDate(Subscription subscription)
-        {
-            var start = subscription.StartDate;
-            var now = DateTime.UtcNow;
-
-            if (subscription.Interval == BillingInterval.Monthly)
-            {
-                var next = start;
-                while (next < now)
-                {
-                    next = next.AddMonths(1);
-                }
-                return next;
-            }
-            else // Yearly
-            {
-                var next = start;
-                while (next < now)
-                {
-                    next = next.AddYears(1);
-                }
-                return next;
-            }
-        }
-
-
-
-            public async Task<List<UpcomingPaymentDto>> GetUpcomingPaymentsAsync(string userId, int daysAhead = 7)
+        public async Task<List<UpcomingPaymentDto>> GetUpcomingPaymentsAsync(string userId, int daysAhead = 7)
         {
             var subscriptions = await _subscriptionRepository.GetAllSubscriptionsForUserAsync(userId);
             var active = subscriptions.Where(s => s.CancelledDate is null);
@@ -185,7 +158,45 @@ namespace MySubs.Services
 
             return upcoming;
         }
-    }
-    }           
-    
 
+        private static DateTime GetNextPaymentDate(Subscription subscription)
+        {
+            var start = subscription.StartDate;
+            var now = DateTime.UtcNow;
+
+            if (subscription.Interval == BillingInterval.Monthly)
+            {
+                var next = start;
+                while (next < now)
+                {
+                    next = next.AddMonths(1);
+                }
+                return next;
+            }
+            else
+            {
+                var next = start;
+                while (next < now)
+                {
+                    next = next.AddYears(1);
+                }
+                return next;
+            }
+        }
+
+        private static SubscriptionResponseDto MapToResponseDto(Subscription s)
+        {
+            return new SubscriptionResponseDto
+            {
+                Id = s.Id,
+                Name = s.Name,
+                Cost = s.Cost,
+                Interval = s.Interval,
+                StartDate = s.StartDate,
+                CancelledDate = s.CancelledDate,
+                CategoryId = s.CategoryId,
+                CategoryName = s.Category?.Name ?? string.Empty
+            };
+        }
+    }
+}

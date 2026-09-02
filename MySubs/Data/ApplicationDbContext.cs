@@ -17,6 +17,8 @@
         public DbSet<Subscription> Subscriptions { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<FamilyGroup> FamilyGroups { get; set; }
+        public DbSet<FamilyGroupMember> FamilyGroupMembers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -46,6 +48,32 @@
                 .WithMany(u => u.RefreshTokens)
                 .HasForeignKey(rt => rt.UserId)
                 .OnDelete(DeleteBehavior.Cascade); // raderar refresh tokens om användaren tas bort
+
+            // FamilyGroupMember -> FamilyGroup (many-to-one)
+            builder.Entity<FamilyGroupMember>()
+                .HasOne(fgm => fgm.FamilyGroup)
+                .WithMany(fg => fg.Members)
+                .HasForeignKey(fgm => fgm.FamilyGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // FamilyGroupMember -> ApplicationUser (many-to-one)
+            builder.Entity<FamilyGroupMember>()
+                .HasOne(fgm => fgm.User)
+                .WithMany()
+                .HasForeignKey(fgm => fgm.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // FamilyGroup -> ApplicationUser (skaparen)
+            builder.Entity<FamilyGroup>()
+                .HasOne(fg => fg.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(fg => fg.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict); // hindrar att skaparen raderas om gruppen finns kvar
+
+            // En användare kan bara vara medlem i en grupp en gång
+            builder.Entity<FamilyGroupMember>()
+                .HasIndex(fgm => new { fgm.FamilyGroupId, fgm.UserId })
+                .IsUnique();
         }
     }
 }

@@ -4,7 +4,7 @@ namespace MySubs.Services.IServices
 {
     public interface ISubscriptionService
     {
-        Task<List<SubscriptionResponseDto>> GetAllSubscriptionsAsync(string userId);
+        Task<List<SubscriptionResponseDto>> GetAllSubscriptionsAsync(string userId, SubscriptionFilterDto? filter = null);
         Task<SubscriptionResponseDto?> GetSubscriptionByIdAsync(int id, string userId);
         Task<SubscriptionResponseDto> CreateSubscriptionAsync(SubscriptionCreateDto dto, string userId);
         Task<bool> UpdateSubscriptionAsync(int id, SubscriptionUpdateDto dto, string userId);

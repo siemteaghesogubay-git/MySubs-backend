@@ -55,6 +55,16 @@ namespace MySubs.Dtos
         public List<CategorySummaryDto> CostByCategory { get; set; } = new();
     }
 
+
+
+    public class SubscriptionFilterDto
+    {
+        public int? CategoryId { get; set; }
+        public string? SortBy { get; set; }      
+        public bool? SortDescending { get; set; }
+        public bool? ActiveOnly { get; set; }     
+    }
+
     public class UpcomingPaymentDto
     {
         public int SubscriptionId { get; set; }
