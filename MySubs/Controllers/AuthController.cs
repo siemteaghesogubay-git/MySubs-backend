@@ -120,8 +120,6 @@ namespace MySubs.Controllers
         }
 
 
-
-
         [HttpPost("logout")]
         [Authorize]
         public async Task<IActionResult> Logout(RefreshTokenDto dto)
@@ -222,6 +220,61 @@ namespace MySubs.Controllers
 
             return Ok(new { message = "Lösenordet har ändrats. Vänligen logga in igen." });
         }
+
+        [HttpPost("forgot-password")]
+        [EnableRateLimiting("AuthPolicy")]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+
+            if (user is null)
+                return Ok(new { message = "Om e-postadressen finns registrerad har ett återställningsmejl skickats." });
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+            return Ok(new
+            {
+                message = "Om e-postadressen finns registrerad har ett återställningsmejl skickats.",
+                devToken = token // ← endast för utveckling, ta bort senare
+            });
+        }
+
+        [HttpPost("reset-password")]
+        [EnableRateLimiting("AuthPolicy")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user is null)
+                return BadRequest("Ogiltig begäran.");
+
+            var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
+            if (!result.Succeeded)
+                return BadRequest(result.Errors);
+
+            // Bra praxis: återkalla alla aktiva refresh tokens efter lösenordsåterställning,
+            // av samma anledning som vid vanligt lösenordsbyte
+            var activeTokens = await _context.RefreshTokens
+                .Where(rt => rt.UserId == user.Id && rt.RevokedAt == null)
+                .ToListAsync();
+
+            foreach (var t in activeTokens)
+            {
+                t.RevokedAt = DateTime.UtcNow;
+            }
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Lösenordet har återställts. Vänligen logga in med ditt nya lösenord." });
+        } 
+
+
+
+
+
+
 
 
 

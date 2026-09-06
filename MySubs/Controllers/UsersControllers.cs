@@ -74,7 +74,7 @@ namespace MySubs.Controllers
 
         // ---------- Egen profil: alla inloggade användare ----------
 
-        [HttpGet("me")]
+        [HttpGet("/api/Users/me")]
         public async Task<ActionResult<UserResponseDto>> GetMyProfile()
         {
             var user = await _userManager.FindByIdAsync(UserId);
@@ -92,7 +92,7 @@ namespace MySubs.Controllers
             });
         }
 
-        [HttpPut("me")]
+        [HttpPut("/api/Users/me")]
         public async Task<IActionResult> UpdateMyProfile(UpdateProfileDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -110,7 +110,7 @@ namespace MySubs.Controllers
             return NoContent();
         }
 
-        [HttpDelete("me")]
+        [HttpDelete("/api/Users/me")]
         public async Task<IActionResult> DeleteMyAccount()
         {
             var user = await _userManager.FindByIdAsync(UserId);
