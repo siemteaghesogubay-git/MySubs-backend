@@ -129,6 +129,8 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowReactApp");
 
+//Milware 
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
@@ -148,5 +150,10 @@ using (var scope = app.Services.CreateScope())
         }
     }
 }
+app.MapGet("/", () => Results.Ok(new
+{
+    application = "MySubs API",
+    status = "Running"
+}));
 
 app.Run();
